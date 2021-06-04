@@ -1,0 +1,235 @@
+---
+title: "NYPD Shooting Incidents Report"
+author: "Sergey Ostrovsky"
+date: "5/31/2021"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    fig_caption: yes
+    fig_crop: no
+    highlight: haddock
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+---
+# Introduction
+
+The data NYPD Shooting Incidents contains many exciting points to analyze the incidents based on location, region, race, or age. However, my interest in this report is to analyze the data based on political parties which are Republican or Democrats, economy, Covid-19, and presidential administration. The data contain the incident report from 2006 to 2020. Thus, based on my knowledge of the economy, presidential election, and covid-19 during these years, I would like to analyze the predominant factor which causes NYPD shooting incidents.
+
+
+# Importing
+##### First, I will import the libraries to use for the report.
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+options(width=60)
+options(warn=-1)
+```
+
+##### Next, create a multiplot function for multiple charts.
+
+```{r}
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+    library(grid)
+    
+    # Make a list from the ... arguments and plotlist
+    plots <- c(list(...), plotlist)
+    
+    numPlots = length(plots)
+    
+    # If layout is NULL, then use 'cols' to determine layout
+    if (is.null(layout)) {
+        # Make the panel
+        # ncol: Number of columns of plots
+        # nrow: Number of rows needed, calculated from # of cols
+        layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                         ncol = cols, nrow = ceiling(numPlots/cols))
+    }
+    
+    if (numPlots==1) {
+        print(plots[[1]])
+        
+    } else {
+        # Set up the page
+        grid.newpage()
+        pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+        
+        # Make each plot, in the correct location
+        for (i in 1:numPlots) {
+            # Get the i,j matrix positions of the regions that contain this subplot
+            matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+            
+            print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                            layout.pos.col = matchidx$col))
+        }
+    }
+}
+```
+
+##### Now I can load NYPD Data from https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD link.
+
+```{r}
+url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+nypd_shooting_incident <- read_csv(url)
+summary(nypd_shooting_incident)
+```
+
+##### Let's select only remarkable columns for this report.
+
+```{r}
+nypd_shooting_incident <- nypd_shooting_incident %>% 
+    select(OCCUR_DATE,BORO,PERP_AGE_GROUP,PERP_RACE,
+           VIC_AGE_GROUP,VIC_SEX,VIC_RACE) 
+```
+
+# Tidying and Transforming NYPD Data
+##### Create YEAR and YEAR_MONTH columns for the analysis.
+
+```{r}
+nypd_si_all <- nypd_shooting_incident %>%
+    select(BORO, OCCUR_DATE) %>%
+    mutate(OCCUR_DATE = mdy(OCCUR_DATE), INCIDENTS_all = 1,
+           YEAR = format_ISO8601(OCCUR_DATE, precision = "y"),
+           YEAR_MONTH = format_ISO8601(OCCUR_DATE, precision = "ym"))
+```
+
+##### Group and count NYPD Shooting Incidents by year.
+
+```{r}
+nypd_si_all_global <- nypd_si_all %>% 
+    select(YEAR, INCIDENTS_all) %>%
+    group_by(YEAR) %>%
+    summarise(INCIDENTS_all = sum(INCIDENTS_all), .groups = "keep") %>%
+    ungroup()
+```
+
+##### Group and count NYPD Shooting Incidents by month for 2018, 2019, and 2020.
+
+```{r}
+nypd_si_all_global_monthly <- nypd_si_all %>% 
+    select(YEAR_MONTH, INCIDENTS_all) %>%
+    group_by(YEAR_MONTH) %>%
+    summarise(INCIDENTS_all = sum(INCIDENTS_all), .groups = "keep") %>%
+    ungroup()
+
+nypd_si_2020 <- nypd_shooting_incident %>%
+    select(BORO, OCCUR_DATE) %>%
+    mutate(OCCUR_DATE = mdy(OCCUR_DATE), INCIDENTS_2020 = 1,
+           MONTH = format(OCCUR_DATE, "%b")) %>%
+    filter(OCCUR_DATE >= as.Date("2020-01-01") & OCCUR_DATE <= as.Date("2020-12-31"))
+
+nypd_si_2020_global <- nypd_si_2020 %>% 
+    select(MONTH, INCIDENTS_2020) %>%
+    group_by(MONTH) %>%
+    summarise(INCIDENTS_2020 = sum(INCIDENTS_2020), .groups = "keep") %>%
+    ungroup()
+    
+nypd_si_2019 <- nypd_shooting_incident %>%
+    select(BORO, OCCUR_DATE) %>%
+    mutate(OCCUR_DATE = mdy(OCCUR_DATE), INCIDENTS_2019 = 1,
+           MONTH = format(OCCUR_DATE, "%b")) %>%
+    filter(OCCUR_DATE >= as.Date("2019-01-01") & OCCUR_DATE <= as.Date("2019-12-31"))
+
+nypd_si_2019_global <- nypd_si_2019 %>% 
+    select( MONTH, INCIDENTS_2019) %>%
+    group_by(MONTH) %>%
+    summarise(INCIDENTS_2019 = sum(INCIDENTS_2019), .groups = "keep") %>%
+    ungroup()
+
+nypd_si_2018 <- nypd_shooting_incident %>%
+    select(BORO, OCCUR_DATE) %>%
+    mutate(OCCUR_DATE = mdy(OCCUR_DATE), INCIDENTS_2018 = 1,
+           MONTH = format(OCCUR_DATE, "%b")) %>%
+    filter(OCCUR_DATE >= as.Date("2018-01-01") & OCCUR_DATE <= as.Date("2018-12-31"))
+
+nypd_si_2018_global <- nypd_si_2018 %>% 
+    select(MONTH, INCIDENTS_2018) %>%
+    group_by(MONTH) %>%
+    summarise(INCIDENTS_2018 = sum(INCIDENTS_2018), .groups = "keep") %>%
+    ungroup()
+```
+
+# Visualizing Data
+
+##### Visualize NYPD Data that shows the number of incidents that occurred yearly.
+
+```{r}
+nypd_si_all_global %>%
+    ggplot(aes(x = YEAR, y = INCIDENTS_all, group = 1)) +
+    geom_line(aes(color = "Incidents")) +
+    geom_point(aes(color = "Incidents")) +
+    theme(legend.position = "bottom",
+          axis.text.x = element_text(angle = 90)) +
+    labs(title = "NYPD Shooting Incidents in New York", y = "Incidents", x="Year")
+```
+
+# Analyzing NYPD Data
+
+The graph above shows that the lowest NYPD Shooting Incidents were from 2016 to 2019, the Trump administration period until covid-19 came. After Covid-19, the economy became terrible, and the number of incidents became high. Thus we can see that the primary part in shooting incidents plays the status of the economy and not the political parties, which are either Republicans or Democrats.
+
+##### For better analysis, let's see the monthly comparison for the last three years.
+
+```{r}
+nypd_si_last_3_year <- full_join(nypd_si_2018_global,
+                                 nypd_si_2019_global, by="MONTH")
+
+nypd_si_last_3_year <- full_join(nypd_si_last_3_year,
+                                 nypd_si_2020_global, by="MONTH")
+
+level_order <- c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul','Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+nypd_si_last_3_year %>%
+    ggplot(aes(x = factor(MONTH, level = level_order), y = INCIDENTS_2018, group = 1)) +
+    geom_line(aes(color = "Incidents_2018")) +
+    geom_point(aes(color = "Incidents_2018")) +
+    geom_line(aes(y = INCIDENTS_2019, color = "Incidents_2019")) +
+    geom_point(aes(y = INCIDENTS_2019, color = "Incidents_2019")) +
+    geom_line(aes(y = INCIDENTS_2020, color = "Incidents_2020")) +
+    geom_point(aes(y = INCIDENTS_2020, color = "Incidents_2020")) +
+    theme(legend.position = "bottom",
+          axis.text.x = element_text(angle = 90)) +
+    labs(title = "NYPD Shooting Incidents for the last three years", y = "Incidents", x="Month")
+```
+
+The graph above shows that the number of NYPD shooting incidents started growing in May 2020. However, in September it moved lower but not up to the level of the previous two years.
+
+# Modeling NYPD Data
+
+##### To see a better picture, I would like to compare how 2019 year correlates with 2018 and 2020. For this, I will create the model for 2019_2018 and 2019_2020.
+
+```{r}
+mod_2019_2018 <- lm(INCIDENTS_2019 ~ INCIDENTS_2018, data = nypd_si_last_3_year)
+summary(mod_2019_2018)
+mod_2019_2020 <- lm(INCIDENTS_2019 ~ INCIDENTS_2020, data = nypd_si_last_3_year)
+summary(mod_2019_2020)
+
+nypd_si_last_3_year_pred <- nypd_si_last_3_year %>% 
+    mutate(pred_2019_2018 = predict(mod_2019_2018), pred_2019_2020 = predict(mod_2019_2020))
+
+p1 <- nypd_si_last_3_year_pred %>% ggplot(aes(x = factor(MONTH, level = level_order),
+                                        y = factor(MONTH, level = level_order), group = 1)) +
+    geom_point(aes(y = INCIDENTS_2018, x = INCIDENTS_2019), 
+               color = "blue") +
+    geom_point(aes(y = pred_2019_2018, x = INCIDENTS_2019),
+               color = "red") +
+    labs(title = "Shooting Incidents 2019 and 2018", x = "Incidents 2019", y="Incients 2018")
+
+p2 <- nypd_si_last_3_year_pred %>% ggplot(aes(x = factor(MONTH, level = level_order),
+                                        y = factor(MONTH, level = level_order), group = 1)) +
+    geom_point(aes(y = INCIDENTS_2020, x = INCIDENTS_2019), 
+               color = "blue") +
+    geom_point(aes(y = pred_2019_2020, x = INCIDENTS_2019),
+               color = "orange") +
+    labs(title = "Shooting Incidents 2019 and 2020", x = "Incidents 2019", y="Incients 2020")
+
+
+multiplot(p1, p2, cols = 2)
+```
+
+##### The graph above shows that predicted shooting incidents for 2018 is very close to incidents for 2019, while indicated incidents for 2020 are far away.
+# Conclusion and Bias
+
+The analysis above shows that the economy plays a primary role in shooting incidents. The other factors like President or Covid-19 can only affect the economy but not shooting incidents. The bias of this analysis can be that during the Trump administration, the economy was good before Covid-19 started, and the number of shooting incidents was low. However, when Covid-19 affected the economy, the number of shooting incidents became high again, and Trump could not handle it. So it is still unclear if Trump, who created a good economy or economy, started improving just during the second term of Obama and continue the improvement.
