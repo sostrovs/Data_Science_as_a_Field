@@ -3,8 +3,6 @@ title: "NYPD Shooting Incidents Report"
 author: "Sergey Ostrovsky"
 date: "5/31/2021"
 output:
-  html_document:
-    df_print: paged
   pdf_document:
     fig_caption: yes
     fig_crop: no
@@ -13,6 +11,8 @@ output:
     number_sections: yes
     toc: yes
     toc_depth: 2
+  html_document:
+    df_print: paged
 ---
 # Introduction
 
@@ -198,38 +198,24 @@ The graph above shows that the number of NYPD shooting incidents started growing
 
 # Modeling NYPD Data
 
-##### To see a better picture, I would like to compare how 2019 year correlates with 2018 and 2020. For this, I will create the model for 2019_2018 and 2019_2020.
-
+##### To see a better picture, I would like to create model which shows how the economy from 2006 to 2020 effect the shooting insidents
 ```{r}
-mod_2019_2018 <- lm(INCIDENTS_2019 ~ INCIDENTS_2018, data = nypd_si_last_3_year)
-summary(mod_2019_2018)
-mod_2019_2020 <- lm(INCIDENTS_2019 ~ INCIDENTS_2020, data = nypd_si_last_3_year)
-summary(mod_2019_2020)
+mod <- lm(INCIDENTS_all ~ as.integer(YEAR)-INCIDENTS_all, data = nypd_si_all_global)
+summary(mod)
 
-nypd_si_last_3_year_pred <- nypd_si_last_3_year %>% 
-    mutate(pred_2019_2018 = predict(mod_2019_2018), pred_2019_2020 = predict(mod_2019_2020))
-
-p1 <- nypd_si_last_3_year_pred %>% ggplot(aes(x = factor(MONTH, level = level_order),
-                                        y = factor(MONTH, level = level_order), group = 1)) +
-    geom_point(aes(y = INCIDENTS_2018, x = INCIDENTS_2019), 
+nypd_si_all_global_pred <- nypd_si_all_global %>%
+    mutate(pred = predict(mod))
+nypd_si_all_global_pred %>% ggplot(aes(x = YEAR, INCIDENTS_all, group = 1)) +
+    geom_point(aes(y = INCIDENTS_all, x = YEAR), 
                color = "blue") +
-    geom_point(aes(y = pred_2019_2018, x = INCIDENTS_2019),
+    geom_line(aes(y = pred, x = YEAR),
                color = "red") +
-    labs(title = "Shooting Incidents 2019 and 2018", x = "Incidents 2019", y="Incients 2018")
-
-p2 <- nypd_si_last_3_year_pred %>% ggplot(aes(x = factor(MONTH, level = level_order),
-                                        y = factor(MONTH, level = level_order), group = 1)) +
-    geom_point(aes(y = INCIDENTS_2020, x = INCIDENTS_2019), 
-               color = "blue") +
-    geom_point(aes(y = pred_2019_2020, x = INCIDENTS_2019),
-               color = "orange") +
-    labs(title = "Shooting Incidents 2019 and 2020", x = "Incidents 2019", y="Incients 2020")
+    labs(title = "Shooting Incidents 2006-2020", x = "Year", y="Incients")
 
 
-multiplot(p1, p2, cols = 2)
 ```
 
-##### The graph above shows that predicted shooting incidents for 2018 is very close to incidents for 2019, while indicated incidents for 2020 are far away.
-# Conclusion and Bias
+##### The graph above shows that predicted shooting incidents from 2006 to 2020 goes down because of the economy improvement.
 
+# Conclusion and Bias
 The analysis above shows that the economy plays a primary role in shooting incidents. The other factors like President or Covid-19 can only affect the economy but not shooting incidents. The bias of this analysis can be that during the Trump administration, the economy was good before Covid-19 started, and the number of shooting incidents was low. However, when Covid-19 affected the economy, the number of shooting incidents became high again, and Trump could not handle it. So it is still unclear if Trump, who created a good economy or economy, started improving just during the second term of Obama and continue the improvement.

@@ -3,43 +3,6 @@ library(lubridate)
 library(ggplot2)
 options(width=60)
 
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-    library(grid)
-    
-    # Make a list from the ... arguments and plotlist
-    plots <- c(list(...), plotlist)
-    
-    numPlots = length(plots)
-    
-    # If layout is NULL, then use 'cols' to determine layout
-    if (is.null(layout)) {
-        # Make the panel
-        # ncol: Number of columns of plots
-        # nrow: Number of rows needed, calculated from # of cols
-        layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                         ncol = cols, nrow = ceiling(numPlots/cols))
-    }
-    
-    if (numPlots==1) {
-        print(plots[[1]])
-        
-    } else {
-        # Set up the page
-        grid.newpage()
-        pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-        
-        # Make each plot, in the correct location
-        for (i in 1:numPlots) {
-            # Get the i,j matrix positions of the regions that contain this subplot
-            matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-            
-            print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                            layout.pos.col = matchidx$col))
-        }
-    }
-}
-
-
 # importing
 url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
 nypd_shooting_incident <- read_csv(url)
@@ -133,31 +96,15 @@ nypd_si_last_3_year %>%
     labs(title = "NYPD Shooting Incidents for the last three years", y = "Incidents", x="Month")
 
 # Modeling Data
-mod_2019_2018 <- lm(INCIDENTS_2019 ~ INCIDENTS_2018, data = nypd_si_last_3_year)
-summary(mod_2019_2018)
-mod_2019_2020 <- lm(INCIDENTS_2019 ~ INCIDENTS_2020, data = nypd_si_last_3_year)
-summary(mod_2019_2020)
+mod <- lm(INCIDENTS_all ~ as.integer(YEAR)-INCIDENTS_all, data = nypd_si_all_global)
+summary(mod)
 
-nypd_si_last_3_year_pred <- nypd_si_last_3_year %>% 
-    mutate(pred_2019_2018 = predict(mod_2019_2018), pred_2019_2020 = predict(mod_2019_2020))
-
-p1 <- nypd_si_last_3_year_pred %>% ggplot(aes(x = factor(MONTH, level = level_order),
-                                        y = factor(MONTH, level = level_order), group = 1)) +
-    geom_point(aes(y = INCIDENTS_2018, x = INCIDENTS_2019), 
+nypd_si_all_global_pred <- nypd_si_all_global %>%
+    mutate(pred = predict(mod))
+nypd_si_all_global_pred %>% ggplot(aes(x = YEAR, INCIDENTS_all, group = 1)) +
+    geom_point(aes(y = INCIDENTS_all, x = YEAR), 
                color = "blue") +
-    geom_point(aes(y = pred_2019_2018, x = INCIDENTS_2019),
+    geom_line(aes(y = pred, x = YEAR),
                color = "red") +
-    labs(title = "Shooting Incidents 2019 and 2018", x = "Incidents 2019", y="Incients 2018")
-
-p2 <- nypd_si_last_3_year_pred %>% ggplot(aes(x = factor(MONTH, level = level_order),
-                                        y = factor(MONTH, level = level_order), group = 1)) +
-    geom_point(aes(y = INCIDENTS_2020, x = INCIDENTS_2019), 
-               color = "blue") +
-    geom_point(aes(y = pred_2019_2020, x = INCIDENTS_2019),
-               color = "orange") +
-    labs(title = "Shooting Incidents 2019 and 2020", x = "Incidents 2019", y="Incients 2020")
-
-
-multiplot(p1, p2, cols = 2)
-
+    labs(title = "Shooting Incidents 2006-2020", x = "Year", y="Incients")
 
